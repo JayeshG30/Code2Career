@@ -1,1 +1,1 @@
-export const DB_NAME = "Hirely"
+export const DB_NAME = "Code2Career"

@@ -1,1 +1,1 @@
-# Code2Carrer - A Job Portal
+# Code2Career - A Job Portal

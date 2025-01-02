@@ -18,6 +18,10 @@ const jobSchema = new Schema(
             type: Number,
             required: true
         },
+        experience: {
+            type: Number,
+            required: true
+        },
         location: {
             type: String,
             required: true
@@ -40,10 +44,12 @@ const jobSchema = new Schema(
             ref: "User",
             required: true
         },
-        applications: {
-            type: Schema.Types.ObjectId,
-            ref: "Application"
-        }
+        applications: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: "Application"
+            }
+        ]
     }, {timestamps: true}
 )
 
