@@ -9,7 +9,7 @@ import {
 
 const router = Router()
 
-router.route("/apply/:id").post(verifyJwt, applyJob)
+router.route("/apply/:id").get(verifyJwt, applyJob)
 router.route("/get").get(verifyJwt, getAppliedJobs)
 router.route("/applicants/:id").get(getApplicants)
 router.route("/update-status/:id").patch(verifyJwt, updateStatus)

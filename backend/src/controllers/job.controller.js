@@ -98,6 +98,9 @@ const getJobById = asyncHandler(async(req, res) => {
         const job = await Job.findById(jobId).populate({
             path: "company",
             options: {sort: {createdAt: 1}}
+        }).populate({
+            path: "applications",
+            options: {sort: {createdAt: 1}}
         })
 
         if(!job){
@@ -122,7 +125,10 @@ const getRecruiterJobs = asyncHandler(async(req, res) => {
         throw new ApiError(401, "Invalid ID!")
     }
 
-    const jobs = await Job.find({created_by: id})
+    const jobs = await Job.find({created_by: id}).populate({
+        path: 'company',
+        options: {sort: {createdAt: 1}}
+    })
 
     if(!jobs){
         throw new ApiError(404, "No job found posted by this recruiter!")

@@ -3,13 +3,16 @@ import { Company } from "../models/company.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js"
+import getDataUri from "../utils/dataUri.js";
+import cloudinary from "../utils/Cloudinary.js"
+
 
 const registerCompany = asyncHandler(async(req, res) => {
     try {
-        const {name, description, website, location} = req.body
+        const {companyName} = req.body
     
-        if(!name || !description || !website || !location || [name, description, website, location].some((field) => field.trim() === "")){
-            throw new ApiError(401, "All fields are required")
+        if(!companyName || companyName.trim() === ""){
+            throw new ApiError(401, "Company name is required")
         }
     
         if(!req.user){
@@ -20,10 +23,10 @@ const registerCompany = asyncHandler(async(req, res) => {
             throw new ApiError(401, "Only recruiters can register a company!")
         }
     
-        const companyName = name.toLowerCase().trim()
+        const name = companyName.toLowerCase().trim()
     
         const existingCompany = await Company.findOne({
-            name: companyName
+            name
         })
     
         if(existingCompany) {
@@ -31,10 +34,7 @@ const registerCompany = asyncHandler(async(req, res) => {
         }
     
         const company = await Company.create({
-            name: companyName,
-            description,
-            website,
-            location,
+            name,
             userId: req.user?._id
         })
     
@@ -118,6 +118,12 @@ const updateCompanyDetails = asyncHandler(async(req, res) => {
             throw new ApiError(401, "All fields are required")
         }
 
+        const file = req.file
+
+        const fileUri = getDataUri(file)
+        const cloudResponse = await cloudinary.uploader.upload(fileUri.content)
+        const logo = cloudResponse.secure_url
+
         if(!req.user) {
             throw new ApiError(401, "You are not authorized to update the profile")
         }
@@ -132,14 +138,17 @@ const updateCompanyDetails = asyncHandler(async(req, res) => {
             throw new ApiError(401, "No such company exists")
         }
 
+        const companyName = name.toLowerCase().trim()
+
         const updatedCompany = await Company.findByIdAndUpdate(
             companyId,
             {
                 $set: {
-                    name,
+                    companyName,
                     description,
                     website,
                     location,
+                    logo
                 }
             },
             {

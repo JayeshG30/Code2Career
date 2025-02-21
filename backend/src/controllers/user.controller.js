@@ -2,6 +2,8 @@ import { User } from "../models/user.models.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js"
+import getDataUri from "../utils/dataUri.js";
+import cloudinary from "../utils/Cloudinary.js"
 
 const generateAccessAndRefreshToken = async(userId) => {
     const user = await User.findById(userId)
@@ -14,15 +16,21 @@ const generateAccessAndRefreshToken = async(userId) => {
 }
 
 const registerUser = asyncHandler(async (req, res) => {
-    // try {
-        console.log(req.body);
-        
+    try {
         const {fullName, email, username, password, phoneNumber, role} = req.body
-
-        console.log(req.body)
     
         if([fullName, email, username, password, phoneNumber, role].some((field) => field?.trim() === "")) {
             throw new ApiError(400, "All fields are required")
+        }
+
+        const file = req.file
+        const fileUri = getDataUri(file)
+        const cloudResponse = await cloudinary.uploader.upload(fileUri.content)
+
+        let fileUrl = null
+
+        if(cloudResponse){
+            fileUrl = cloudResponse.secure_url;
         }
     
         const existedUser = await User.findOne({
@@ -39,7 +47,10 @@ const registerUser = asyncHandler(async (req, res) => {
             username: username.toLowerCase(),
             password,
             phoneNumber,
-            role
+            role,
+            profile: {
+                profilePhoto: fileUrl ? fileUrl : null
+            }
         })
 
         const createdUser = await User.findById(user._id).select(
@@ -57,13 +68,13 @@ const registerUser = asyncHandler(async (req, res) => {
                 "User registered successfully"
             ))
         }
-    // } catch (error) {
-    //     throw new ApiError(500, "Something went wrong while registering the user", error)
-    // }
+    } catch (error) {
+        console.error(error)
+    }
 })
 
 const loginUser = asyncHandler(async (req, res) => {
-    // try {
+    try {
         const {username, email, password, role} = req.body
 
         if((!username && !email)){
@@ -75,8 +86,7 @@ const loginUser = asyncHandler(async (req, res) => {
         if((!password || !role) || role.trim() === "") {
             throw new ApiError(400, "Password and role are required")
         }
-        
-        console.log(usernameLower)
+
         const user = await User.findOne({
             $or: [{username: usernameLower}, {email}]
         })
@@ -120,9 +130,10 @@ const loginUser = asyncHandler(async (req, res) => {
                 "User logged in successfully!"
             )
         )
-    // } catch (error) {
-    //     throw new ApiError(500, "Something went wrong while logging in")
-    // }
+    } catch (error) {
+        console.error(error)
+        // throw new ApiError(500, "Something went wrong while logging in")
+    }
 })
 
 const logoutUser = asyncHandler(async(req, res) => {
@@ -160,12 +171,28 @@ const logoutUser = asyncHandler(async(req, res) => {
 })
 
 const updateProfile = asyncHandler(async(req, res) => {
-    // login validation and uploads are remaining
+    // uploads are remaining
     try {
-        const {fullName, email, username, phoneNumber, role, bio, skills} = req.body
+        const {fullName, email, username, phoneNumber, bio, skills} = req.body
     
-        if((!fullName || !email || !username || !phoneNumber || !role) || [fullName, email, username, phoneNumber, role].some((field) => field.trim() === "")){
+        if((!fullName || !email || !username || !phoneNumber) || [fullName, email, username, phoneNumber].some((field) => field.trim() === "")){
             throw new ApiError(400, "All Complusory fields are required")
+        }
+
+        const file = req.file;
+        // cloudinary ayega idhar
+        const fileUri = getDataUri(file);
+        const cloudResponse = await cloudinary.uploader.upload(fileUri.content);
+
+        // console.log(file)
+        // console.log(cloudResponse)
+
+        let fileUrl = null;
+        let fileOriginalName = null
+
+        if(cloudResponse){
+            fileUrl = cloudResponse.url;
+            fileOriginalName = file.originalname;
         }
     
         const skillsArray = skills ? skills.split(",") : []
@@ -178,14 +205,16 @@ const updateProfile = asyncHandler(async(req, res) => {
                     email,
                     username,
                     phoneNumber,
-                    role,
-                    "profile.bio": bio
+                    "profile.bio": bio,
+                    "profile.skills": skillsArray || [],
+                    "profile.resume": fileUrl,
+                    "profile.resumeOriginalName": fileOriginalName
                 },
-                $push: {
-                    "profile.skills" : {
-                        $each: skillsArray || []
-                    }
-                }
+                // $push: {
+                //     "profile.skills" : {
+                //         $each: skillsArray || []
+                //     }
+                // }
             },
             {
                 new: true,

@@ -6,48 +6,58 @@ import { isValidObjectId } from "mongoose"
 import { Job } from "../models/job.models.js"
 
 const applyJob = asyncHandler(async(req, res) => {
-    const {_id: userId} = req.user._id
-    const {id: jobId} = req.params
-
-    if(!userId) {
-        throw new ApiError(401, "Login to apply for the job!")
+    try {
+        const {_id: userId} = req.user._id
+        const {id: jobId} = req.params
+    
+        if(!userId) {
+            throw new ApiError(401, "Login to apply for the job!")
+        }
+    
+        if(!jobId || !isValidObjectId(jobId)){
+            throw new ApiError(401, "Invalid jobId!")
+        }
+    
+        const existingApplication = await Application.findOne({job: jobId, applicant: userId})
+    
+        if(existingApplication) {
+            throw new ApiError(401, "You have already applied for this job!")
+        }
+    
+        const job = await Job.findById(jobId)
+    
+        if(!job){
+            throw new ApiError(404, "No such job exists!")
+        }
+    
+        const newApplication = await Application.create({
+            job: jobId,
+            applicant: userId,
+        })
+    
+        if(!newApplication){
+            throw new ApiError(500, "Something went wrong while applying for the job!")
+        }
+    
+        job.applications.push(newApplication._id)
+        await job.save()
+    
+        return res
+        .status(200)
+        .json(new ApiResponse(
+            200,
+            newApplication,
+            "Application created successfully!"
+        ))
+    } catch (error) {
+        return res
+        .status(error.statusCode ? error.statusCode : 500)
+        .json(new ApiResponse(
+            error.statusCode ? error.statusCode : 500,
+            error,
+            error.message
+        ))
     }
-
-    if(!jobId || !isValidObjectId(jobId)){
-        throw new ApiError(401, "Invalid jobId!")
-    }
-
-    const existingApplication = await Application.findOne({job: jobId, applicant: userId})
-
-    if(existingApplication) {
-        throw new ApiError(401, "You have already applied for this job!")
-    }
-
-    const job = await Job.findById(jobId)
-
-    if(!job){
-        throw new ApiError(404, "No such job exists!")
-    }
-
-    const newApplication = await Application.create({
-        job: jobId,
-        applicant: userId,
-    })
-
-    if(!newApplication){
-        throw new ApiError(500, "Something went wrong while applying for the job!")
-    }
-
-    job.applications.push(newApplication._id)
-    await job.save()
-
-    return res
-    .status(200)
-    .json(new ApiResponse(
-        200,
-        newApplication,
-        "Application created successfully!"
-    ))
 })
 
 const getAppliedJobs = asyncHandler(async(req, res) => {
